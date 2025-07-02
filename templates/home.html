@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flask Auth0 App</title>
+</head>
+<body>
+  {% if session %}
+    <h1>Welcome, {{ session['userinfo']['email'] }}!</h1>
+    <a href="/protected">Go to Protected Page</a><br>
+    <a href="/logout">Logout</a>
+  {% else %}
+    <h1>Not Logged In</h1>
+    <a href="/login">Login with Auth0</a>
+  {% endif %}
+</body>
+</html>

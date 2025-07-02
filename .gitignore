@@ -1,0 +1,45 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Environment
+.env
+.env.*
+*.env
+
+# VSCode settings
+.vscode/
+
+# Flask logs and debug
+*.log
+
+# Unit test cache
+.cache/
+*.pytest_cache/
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python virtualenv
+venv/
+ENV/
+env/
+
+# Deployment files
+*.zip
+*.tar.gz
+
+# Auth sensitive
+appsettings.json
+
+# Jupyter (if ever used)
+.ipynb_checkpoints/
+
+# Azure
+*.swp
+*.bak

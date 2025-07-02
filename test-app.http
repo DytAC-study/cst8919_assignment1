@@ -1,0 +1,5 @@
+### Access protected route (unauthenticated)
+GET https://flask-web-yuntiandu-240702.azurewebsites.net/protected
+
+### Login (visit manually)
+GET https://flask-web-yuntiandu-240702.azurewebsites.net/login
