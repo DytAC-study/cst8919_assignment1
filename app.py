@@ -31,7 +31,9 @@ def home():
 
 @app.route("/login")
 def login():
-    return oauth.auth0.authorize_redirect(redirect_uri=url_for("callback", _external=True))
+    return oauth.auth0.authorize_redirect(
+        redirect_uri=f"https://flask-web-yuntiandu-240702.azurewebsites.net/callback"
+    )
 
 @app.route("/callback")
 def callback():
