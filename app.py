@@ -1,64 +1,157 @@
-import json
+import os
 import logging
-from os import environ as env
-from urllib.parse import quote_plus, urlencode
+import json
+from flask import Flask, redirect, render_template, session, url_for, request
 from authlib.integrations.flask_client import OAuth
 from dotenv import load_dotenv
-from flask import Flask, redirect, render_template, session, url_for, request
-import datetime
+from datetime import datetime
 
 load_dotenv()
-
 app = Flask(__name__)
-app.secret_key = env.get("APP_SECRET_KEY")
+app.secret_key = os.getenv("APP_SECRET_KEY", "your_default_key")
+app.config['DEBUG'] = True
 
-# Logging setup
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("flask-app")
+# Configure structured logging for Azure Monitor
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 oauth = OAuth(app)
+
+AUTH0_DOMAIN = os.getenv('AUTH0_DOMAIN')
+CLIENT_ID = os.getenv('AUTH0_CLIENT_ID')
+CLIENT_SECRET = os.getenv('AUTH0_CLIENT_SECRET')
+
 oauth.register(
-    "auth0",
-    client_id=env.get("AUTH0_CLIENT_ID"),
-    client_secret=env.get("AUTH0_CLIENT_SECRET"),
+    name="auth0",
+    client_id=CLIENT_ID,
+    client_secret=CLIENT_SECRET,
+    api_base_url=f"https://{AUTH0_DOMAIN}",
+    access_token_url=f"https://{AUTH0_DOMAIN}/oauth/token",
+    authorize_url=f"https://{AUTH0_DOMAIN}/authorize",
+    userinfo_endpoint=f"https://{AUTH0_DOMAIN}/userinfo",
+    jwks_uri=f"https://{AUTH0_DOMAIN}/.well-known/jwks.json",
     client_kwargs={"scope": "openid profile email"},
-    server_metadata_url=f'https://{env.get("AUTH0_DOMAIN")}/.well-known/openid-configuration'
 )
+
+def log_user_activity(activity_type, user_info=None, details=None):
+    """Log user activity in structured format for Azure Monitor"""
+    log_data = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "activity_type": activity_type,
+        "client_ip": request.remote_addr,
+        "user_agent": request.headers.get('User-Agent', ''),
+        "details": details or {}
+    }
+    
+    if user_info:
+        log_data.update({
+            "user_id": user_info.get('sub', ''),
+            "email": user_info.get('email', ''),
+            "name": user_info.get('name', '')
+        })
+    
+    app.logger.info(f"USER_ACTIVITY: {json.dumps(log_data)}")
 
 @app.route("/")
 def home():
-    return render_template("home.html", session=session.get('user'))
+    user = session.get('user')
+    log_user_activity("home_page_access", 
+                     user_info=user.get('userinfo') if user else None)
+    return render_template("home.html", user=user)
+
+@app.route("/ping")
+def ping():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}, 200
+
 
 @app.route("/login")
 def login():
-    return oauth.auth0.authorize_redirect(
-        redirect_uri=f"https://flask-web-yuntiandu-240702.azurewebsites.net/callback"
-    )
+    log_user_activity("login_initiated")
+    # Force HTTPS for Azure deployment
+    if 'azurewebsites.net' in request.host:
+        callback_url = url_for("callback", _external=True, _scheme='https')
+    else:
+        callback_url = url_for("callback", _external=True)
+    app.logger.info(f"Login initiated with callback URL: {callback_url}")
+    return oauth.auth0.authorize_redirect(redirect_uri=callback_url)
 
 @app.route("/callback")
 def callback():
-    token = oauth.auth0.authorize_access_token()
-    session["user"] = token["userinfo"]
-    user = session["user"]
-    logger.info(f"[LOGIN] user_id={user['sub']} email={user['email']} timestamp={datetime.datetime.utcnow()}")
-    return redirect("/")
+    try:
+        # Get authorization code from URL
+        code = request.args.get('code')
+        if not code:
+            raise Exception("No authorization code received")
+        
+        # Exchange code for token
+        token = oauth.auth0.authorize_access_token()
+        
+        # Get user info
+        userinfo = oauth.auth0.get('userinfo', token=token).json()
+        
+        # Store only essential user info to avoid large cookies
+        session['user'] = {
+            'userinfo': {
+                'sub': userinfo.get('sub'),
+                'email': userinfo.get('email'),
+                'name': userinfo.get('name'),
+                'picture': userinfo.get('picture')
+            }
+        }
+        
+        # Log successful login
+        log_user_activity("login_successful", 
+                         user_info=userinfo,
+                         details={"redirect_target": "/protected"})
+        
+        return redirect("/protected")
+    except Exception as e:
+        # Log failed login attempt
+        log_user_activity("login_failed", 
+                         details={"error": str(e), "callback_url": request.url})
+        app.logger.error(f"OAuth callback failed: {e}")
+        return f"Login failed: {str(e)}", 400
 
 @app.route("/logout")
 def logout():
+    user = session.get('user')
+    user_info = user.get('userinfo') if user else None
+    
+    log_user_activity("logout", user_info=user_info)
     session.clear()
-    return redirect(
-        f"https://{env.get('AUTH0_DOMAIN')}/v2/logout?" +
-        urlencode({"returnTo": url_for("home", _external=True), "client_id": env.get("AUTH0_CLIENT_ID")}, quote_via=quote_plus)
+
+    base_url = "https://cst8919-du000086.azurewebsites.net/"
+    logout_url = (
+        f"https://{AUTH0_DOMAIN}/v2/logout"
+        f"?returnTo={base_url}"
+        f"&client_id={CLIENT_ID}"
     )
+    return redirect(logout_url)
+
 
 @app.route("/protected")
 def protected():
-    if "user" not in session:
-        logger.warning(f"[UNAUTHORIZED] Attempt to access /protected at {datetime.datetime.utcnow()}")
-        return "Unauthorized", 401
-    user = session["user"]
-    logger.info(f"[ACCESS] user_id={user['sub']} accessed /protected timestamp={datetime.datetime.utcnow()}")
-    return f"Welcome {user['email']} to the protected route!"
+    user = session.get('user')
+    
+    if not user or not user.get('userinfo'):
+        # Log unauthorized access attempt
+        log_user_activity("unauthorized_access_attempt", 
+                         details={"target_route": "/protected", "reason": "no_valid_session"})
+        return redirect("/login")
+    
+    # Log successful access to protected route
+    log_user_activity("protected_route_access", 
+                     user_info=user['userinfo'],
+                     details={"route": "/protected"})
+    
+    return render_template("protected.html", user=user['userinfo'])
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=3000)
+# Add a health check endpoint for monitoring
+@app.route("/health")
+def health():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}, 200
+
+if __name__ == '__main__':
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8000)))

@@ -1,5 +1,28 @@
-### Access protected route (unauthenticated)
-GET https://flask-web-yuntiandu-240702.azurewebsites.net/protected
+### Assignment 1: Security Monitoring Test Suite
+### This file helps generate test data for KQL analysis and Azure Alert testing
 
-### Login (visit manually)
-GET https://flask-web-yuntiandu-240702.azurewebsites.net/login
+### Environment Variables
+@baseUrl = https://cst8919-du000086.azurewebsites.net
+@localUrl = http://localhost:3000
+
+### Test home page access
+GET {{baseUrl}}/
+Accept: text/html
+
+###
+
+### Test health check endpoint
+GET {{baseUrl}}/health
+Accept: application/json
+
+###
+
+### Test login initiation
+GET {{baseUrl}}/login
+Accept: text/html
+
+###
+
+### Test protected route access (without authentication - should redirect)
+GET {{baseUrl}}/protected
+Accept: text/html

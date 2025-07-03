@@ -1,45 +1,60 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.pyo
-*.pyd
-*.pyc
+*$py.class
 
-# Environment
-.env
-.env.*
-*.env
+# C extensions
+*.so
 
-# VSCode settings
-.vscode/
-
-# Flask logs and debug
-*.log
-
-# Unit test cache
-.cache/
-*.pytest_cache/
-coverage/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Python virtualenv
+# Virtual environment
 venv/
 ENV/
 env/
+.venv/
 
-# Deployment files
-*.zip
-*.tar.gz
+# Environment variables / secrets
+.env
+.env.*
 
-# Auth sensitive
-appsettings.json
+# Flask specific
+instance/
+*.log
 
-# Jupyter (if ever used)
-.ipynb_checkpoints/
+# Pytest / Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
 
-# Azure
-*.swp
-*.bak
+# Editor / IDE files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Deployment artifacts
+app.zip
+
+# Auth0 metadata or cache
+.auth0.json
+
+# Gunicorn logs or PID
+gunicorn.pid
+gunicorn.log
+
+# Azure specific local git
+.scm/
+
+# __pycache__ inside subfolders
+**/__pycache__/
+
+# Compiled test results
+*.out
+
+# Local test config files
+test-app.http

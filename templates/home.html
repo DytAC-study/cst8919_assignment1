@@ -1,16 +1,37 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Flask Auth0 App</title>
+    <title>SecureZone Portal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: #f5f7fa;
+            color: #222;
+            padding: 40px;
+        }
+        a {
+            color: #1d72b8;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+    </style>
 </head>
 <body>
-  {% if session %}
-    <h1>Welcome, {{ session['userinfo']['email'] }}!</h1>
-    <a href="/protected">Go to Protected Page</a><br>
-    <a href="/logout">Logout</a>
-  {% else %}
-    <h1>Not Logged In</h1>
-    <a href="/login">Login with Auth0</a>
-  {% endif %}
+    {% if session %}
+        {% if user and user.userinfo %}
+            Hello, {{ user.userinfo.email }}!
+        {% else %}
+            Hello, Guest!
+        {% endif %}
+        <p>Welcome back to your SecureZone dashboard.</p>
+        <p><a href="/protected">Go to Security Overview</a> | <a href="/logout">Sign out</a></p>
+    {% else %}
+        <h1>SecureZone Portal</h1>
+        <p>Access your dashboard securely with Auth0 SSO. Protected by modern cloud security features.</p>
+        <p><a href="/login">🔐 Sign In</a></p>
+    {% endif %}
 </body>
 </html>
